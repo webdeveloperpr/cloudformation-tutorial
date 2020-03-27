@@ -1,0 +1,46 @@
+Parameters:
+  NameOfService:
+    Type: String
+    Description: The name of the service this will be used for.
+    Default: EC2 Service
+  KeyName:
+    Description: The name of the key to connect to EC2
+    Type: String
+    Default: aws-eb
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-1853ac65
+    us-west-1:
+      AMI: ami-bf5540df
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+          - RegionMap
+          - !Ref AWS::Region
+          - AMI
+      InstanceType: t2.micro # Amazon Linux AMI
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Ref NameOfService
+      SecurityGroups:
+        - !Ref EC2SecurityGroup
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH Access Port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+Outputs:
+  ServerDns:
+    Description: The Public DNS Name of the EC2 Instance
+    Value: !GetAtt
+      - EC2Instance
+      - PublicDnsName
