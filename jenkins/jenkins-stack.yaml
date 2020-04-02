@@ -1,0 +1,82 @@
+Parameters:
+  NameOfService:
+    Description: Jenkins server
+    Type: String
+    Default: Jenkins
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: String
+    Default: aws-eb
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-09a5b0b7edf08843d
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+Resources:
+  JenkinsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+          - RegionMap
+          - !Ref AWS::Region
+          - AMI
+      SecurityGroupIds:
+        - !Ref JenkinsSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Ref NameOfService
+      KeyName: !Ref KeyName
+      UserData:
+        "Fn::Base64": !Sub |
+          #!/bin/bash -xe            
+
+          # Update yum
+          sudo yum update –y
+
+          # Install Java1.8 version compatible with jenkins
+          sudo yum install java-1.8.0 -y
+
+          # remove old java installation
+          sudo yum remove java-1.7.0-openjdk -y
+
+          # Add the Jenkins Repo
+          sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
+
+          # Import a key file from Jenkins-CI to enable installation from the package
+          sudo rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+
+          # Install Jenkins
+          sudo yum install jenkins -y
+
+          # Start Jenkins
+          sudo service jenkins start
+  JenkinsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open Ports 22 and 80
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+Outputs:
+  Website:
+    Description: The Public DNS for the EC2 Instance
+    Value: !Sub "http://${JenkinsInstance.PublicDnsName}"
