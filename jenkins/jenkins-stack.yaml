@@ -47,6 +47,9 @@ Resources:
           # Update yum
           sudo yum update –y
 
+          # Install Git
+          sudo yum install git -y
+
           # Install Java1.8 version compatible with jenkins
           sudo yum install java-1.8.0 -y
 
