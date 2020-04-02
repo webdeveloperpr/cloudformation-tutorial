@@ -1,3 +1,8 @@
+# After installation SSH into the server and type:
+# sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+# This template was created using these instructions:
+# https://d1.awsstatic.com/Projects/P5505030/aws-project_Jenkins-build-server.pdf
 Parameters:
   NameOfService:
     Description: Jenkins server
@@ -79,4 +84,4 @@ Resources:
 Outputs:
   Website:
     Description: The Public DNS for the EC2 Instance
-    Value: !Sub "http://${JenkinsInstance.PublicDnsName}"
+    Value: !Sub "http://${JenkinsInstance.PublicDnsName}:8080"
