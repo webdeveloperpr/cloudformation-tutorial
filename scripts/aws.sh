@@ -1,11 +1,7 @@
 #!/bin/bash
 
 ######################################################################
-# NodeJS - Debian9
+# aws-cli
 ######################################################################
 
-# Update packages
-sudo apt update
-
-# Install OpenJDK11
-echo Y | sudo apt install nodejs npm
+sudo apt install awscli

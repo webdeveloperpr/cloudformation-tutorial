@@ -25,7 +25,16 @@ Mappings:
     ap-southeast-2:
       AMI: ami-43874721
 Resources:
-  JenkinsInstance:
+  # Create an elastic IP so that the ip address doesn't change.
+  IPAddress:
+    Type: AWS::EC2::EIP
+    # Add the Elastic IP to the EC2 instance.
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref "EC2Instance"
+      EIP: !Ref "IPAddress"
+  EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
@@ -35,16 +44,24 @@ Resources:
           - !Ref AWS::Region
           - AMI
       SecurityGroupIds:
-        - !Ref JenkinsSecurityGroup
+        - !Ref EC2SecurityGroup
       Tags:
         - Key: Name
           Value: !Ref NameOfService
       KeyName: !Ref KeyName
       UserData:
         "Fn::Base64": !Sub |
-          #!/bin/bash                
+          #!/bin/bash  
+          
           ######################################################################
-          # Java - Debian9
+          # Time Config
+          ######################################################################          
+          
+          # Changes the timezone so we can see relevant the log times.
+          sudo timedatectl set-timezone America/New_York          
+                        
+          ######################################################################
+          # Java
           # https://linuxize.com/post/how-to-install-and-use-docker-on-debian-10/
           ######################################################################
 
@@ -52,7 +69,7 @@ Resources:
           echo Y | sudo apt install openjdk-8-jdk
 
           ######################################################################
-          # Docker - Debian9
+          # Docker
           # https://linuxize.com/post/how-to-install-and-use-docker-on-debian-10/
           ######################################################################
                     
@@ -101,6 +118,22 @@ Resources:
           # Create Symlink
           sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
+          ######################################################################
+          # NodeJS - (Install this as root user)
+          ######################################################################
+          
+          # Log in as root user
+          sudo su root
+          
+          # Update packages
+          sudo apt update
+
+          curl -sL https://deb.nodesource.com/setup_12.x | bash -
+          apt-get install -y nodejs
+
+          # exit back to admin user
+          exit
+                  
           ######################################################################
           # Utils
           ######################################################################
@@ -170,7 +203,7 @@ Resources:
           sudo timedatectl set-timezone America/New_York          
 
           
-  JenkinsSecurityGroup:
+  EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Open Ports 22 and 80
@@ -190,4 +223,10 @@ Resources:
 Outputs:
   Website:
     Description: The Public DNS for the EC2 Instance
-    Value: !Sub "http://${JenkinsInstance.PublicDnsName}:8080"
+    Value: !Sub "http://${EC2Instance.PublicDnsName}:8080"
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'EC2Instance'
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref 'IPAddress'    

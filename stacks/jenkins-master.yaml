@@ -7,7 +7,7 @@ Parameters:
   NameOfService:
     Description: Jenkins Master
     Type: String
-    Default: Jenkins
+    Default: jenkins-master
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access into the server
     Type: String
@@ -25,9 +25,18 @@ Mappings:
     ap-southeast-2:
       AMI: ami-43874721
 Resources:
+  # Create an elastic IP so that the ip address doesn't change.
+  IPAddress:
+    Type: AWS::EC2::EIP
+    # Add the Elastic IP to the jenkins instance
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref 'JenkinsInstance'
+      EIP: !Ref 'IPAddress'    
   JenkinsInstance:
     Type: AWS::EC2::Instance
-    Properties:
+    Properties:    
       InstanceType: t2.micro
       ImageId:
         Fn::FindInMap:
@@ -154,7 +163,6 @@ Resources:
           
           # jenins - Go back to the admin shell
           exit
-
   JenkinsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -176,3 +184,9 @@ Outputs:
   Website:
     Description: The Public DNS for the EC2 Instance
     Value: !Sub "http://${JenkinsInstance.PublicDnsName}:8080"
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'JenkinsInstance'
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref 'IPAddress'    

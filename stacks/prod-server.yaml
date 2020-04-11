@@ -1,17 +1,9 @@
-# After installation SSH into the server and type:
-# sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-
 # This template was created using these instructions:
-# https://d1.awsstatic.com/Projects/P5505030/aws-project_Jenkins-build-server.pdf
 Parameters:
   NameOfService:
-    Description: Production
+    Description: stack description
     Type: String
-    Default: Production
-  Email:
-    Description: Email used for ssh
-    Type: String
-    Default: webdeveloperpr@gmail.com
+    Default: production server
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access into the server
     Type: String
@@ -29,7 +21,17 @@ Mappings:
     ap-southeast-2:
       AMI: ami-43874721
 Resources:
-  JenkinsInstance:
+  # Create an elastic IP so that the ip address doesn't change.
+  IPAddress:
+    Type: AWS::EC2::EIP
+    # Add the Elastic IP to the EC2 instance.
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref "EC2Instance"
+      EIP: !Ref "IPAddress"
+    # Create the EC2 instance.
+  EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
@@ -39,7 +41,7 @@ Resources:
           - !Ref AWS::Region
           - AMI
       SecurityGroupIds:
-        - !Ref JenkinsSecurityGroup
+        - !Ref EC2SecurityGroup
       Tags:
         - Key: Name
           Value: !Ref NameOfService
@@ -47,12 +49,19 @@ Resources:
       UserData:
         "Fn::Base64": !Sub |
           #!/bin/bash        
-          # Update 
+
+          ######################################################################
+          # Time Config
+          ######################################################################          
+
+          # Changes the timezone so we can see relevant the log times.
+          sudo timedatectl set-timezone America/New_York          
 
           ######################################################################
           # Utils
           ######################################################################
 
+          # Update packages
           sudo apt update 
 
           # Monitoring
@@ -62,10 +71,10 @@ Resources:
           echo Y | sudo apt install openjdk-8-jdk
 
           # Add SSH Keys
-          ssh-keygen -t rsa -C "${Email}"
+          ssh-keygen -t rsa -C "production"
 
           ######################################################################
-          # Docker - Debian9
+          # Docker
           # https://linuxize.com/post/how-to-install-and-use-docker-on-debian-10/
           ######################################################################
                     
@@ -101,7 +110,6 @@ Resources:
 
           # Add user to docker to prevent having to sudo the Docker commands.  
           sudo usermod -aG docker $USER
-          sudo usermod -aG docker jenkins
 
           ######################################################################
           # Docker Compose
@@ -122,8 +130,8 @@ Resources:
           # Swap Memory
           ######################################################################
 
-          # Create the swapfile 128x32 = 4GB          
-          sudo dd if=/dev/zero of=/swapfile bs=128M count=32
+          # Create the swapfile 128x32 = 2GB          
+          sudo dd if=/dev/zero of=/swapfile bs=128M count=16
 
           # Set permissions
           sudo chmod 600 /swapfile
@@ -140,14 +148,7 @@ Resources:
           # set the swap memory every time OS boots up.
           sudo su -c "echo /swapfile swap swap defaults 0 0 >> /etc/fstab"
 
-          ######################################################################
-          # Time Config
-          ######################################################################          
-          
-          # Changes the timezone so we can see relevant the log times.
-          sudo timedatectl set-timezone America/New_York          
-          
-  JenkinsSecurityGroup:
+  EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Open Ports 22 and 80
@@ -163,4 +164,10 @@ Resources:
 Outputs:
   Website:
     Description: The Public DNS for the EC2 Instance
-    Value: !Sub "http://${JenkinsInstance.PublicDnsName}:8080"
+    Value: !Sub "http://${EC2Instance.PublicDnsName}"
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'EC2Instance'
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref 'IPAddress'    
