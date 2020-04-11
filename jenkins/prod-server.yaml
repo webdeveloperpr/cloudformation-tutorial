@@ -5,9 +5,13 @@
 # https://d1.awsstatic.com/Projects/P5505030/aws-project_Jenkins-build-server.pdf
 Parameters:
   NameOfService:
-    Description: Jenkins server
+    Description: Production
     Type: String
-    Default: Jenkins
+    Default: Production
+  Email:
+    Description: Email used for ssh
+    Type: String
+    Default: webdeveloperpr@gmail.com
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access into the server
     Type: String
@@ -28,7 +32,7 @@ Resources:
   JenkinsInstance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.nano
+      InstanceType: t2.micro
       ImageId:
         Fn::FindInMap:
           - RegionMap
@@ -42,31 +46,23 @@ Resources:
       KeyName: !Ref KeyName
       UserData:
         "Fn::Base64": !Sub |
-          #!/bin/bash -xe
+          #!/bin/bash        
+          # Update 
+
           ######################################################################
-          # Jenkins - Debian9
+          # Utils
           ######################################################################
 
-          # Update packages
-          sudo apt update
+          sudo apt update 
 
-          # Install OpenJDK11
-          echo Y | sudo apt install default-jdk
+          # Monitoring
+          sudo apt install htop          
 
-          # Import Repository keys
-          wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | sudo apt-key add -
+          # Install java
+          echo Y | sudo apt install openjdk-8-jdk
 
-          # Add Jenkins to the repository
-          sudo sh -c 'echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
-
-          # Update packages
-          sudo apt update
-
-          # Install Jenkins
-          echo Y | sudo apt install jenkins
-
-          # Start Jenkins
-          sudo systemctl enable --now jenkins
+          # Add SSH Keys
+          ssh-keygen -t rsa -C "${Email}"
 
           ######################################################################
           # Docker - Debian9
@@ -123,28 +119,34 @@ Resources:
           sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
           ######################################################################
-          # Utils
-          ######################################################################
-
-          # Monitoring
-          apt install htop
-
-          ######################################################################
           # Swap Memory
           ######################################################################
-          # Create the swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=128M count=16 (2048MB)
+
+          # Create the swapfile 128x32 = 4GB          
+          sudo dd if=/dev/zero of=/swapfile bs=128M count=32
+
           # Set permissions
           sudo chmod 600 /swapfile
+
           # Make the swap file
           sudo mkswap /swapfile
+
           # mount the swap file
           sudo swapon /swapfile
+
           # idk what this is
           sudo swapon -s
+
           # set the swap memory every time OS boots up.
           sudo su -c "echo /swapfile swap swap defaults 0 0 >> /etc/fstab"
 
+          ######################################################################
+          # Time Config
+          ######################################################################          
+          
+          # Changes the timezone so we can see relevant the log times.
+          sudo timedatectl set-timezone America/New_York          
+          
   JenkinsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -157,10 +159,6 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
           CidrIp: 0.0.0.0/0
 Outputs:
   Website:
